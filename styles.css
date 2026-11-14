@@ -27,3 +27,19 @@
 .calendar-info p,.calendar-info>span{color:var(--muted);font-size:12px;margin:0 0 5px}
 .calendar-row .btn{flex:0 0 auto}
 @media(max-width:760px){.event-grid{grid-template-columns:1fr}.calendar-row{align-items:flex-start;flex-wrap:wrap}.calendar-row .calendar-date{flex-basis:70px;width:70px;height:70px}.calendar-info{flex-basis:calc(100% - 95px)}.calendar-row .btn{margin-left:92px}}
+/* Tournament flyer display */
+.event-flyer-link {
+  display: block;
+  width: 100%;
+  margin: 0 0 20px;
+  overflow: hidden;
+}
+
+.event-flyer {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 480px;
+  object-fit: contain;
+  border-radius: 4px;
+}
