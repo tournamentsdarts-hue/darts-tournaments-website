@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Darts Tournaments Region Alicante — discover darts tournaments, dates, results and registration in the Alicante region of Spain.">
+  <meta name="theme-color" content="#09090c">
+  <title>Darts Tournaments Region Alicante</title>
+  <link rel="icon" href="assets/logo.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="topline"></div>
+  <header class="site-header">
+    <a class="brand" href="#home" aria-label="Darts Tournaments Region Alicante home">
+      <img src="assets/logo.png" alt="Darts Tournaments Region Alicante logo">
+      <span>DARTS TOURNAMENTS <small>REGION ALICANTE</small></span>
+    </a>
+    <button class="menu-toggle" aria-label="Open menu" aria-expanded="false">☰</button>
+    <nav class="nav">
+      <a href="#events" data-i18n="navEvents">Tournaments</a>
+      <a href="#calendar" data-i18n="navCalendar">Calendar</a>
+      <a href="#results" data-i18n="navResults">Results</a>
+      <a href="#gallery" data-i18n="navGallery">Gallery</a>
+      <a href="#sponsors" data-i18n="navSponsors">Sponsors</a>
+      <a href="#contact" data-i18n="navContact">Contact</a>
+      <select id="language" aria-label="Select language">
+        <option value="en">🇬🇧 EN</option><option value="nl">🇳🇱 NL</option><option value="es">🇪🇸 ES</option>
+      </select>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" id="home">
+      <div class="hero-shade"></div>
+      <div class="hero-content">
+        <p class="eyebrow" data-i18n="heroEyebrow">THE HOME OF DARTS IN ALICANTE</p>
+        <h1><span data-i18n="heroLine1">AIM HIGH.</span><br><em data-i18n="heroLine2">HIT THE BIG STAGE.</em></h1>
+        <p class="hero-copy" data-i18n="heroCopy">Discover tournaments, meet fellow players and be part of the growing darts scene in the Alicante region.</p>
+        <div class="hero-actions">
+          <a class="btn btn-red" href="#events" data-i18n="heroCta">EXPLORE TOURNAMENTS</a>
+          <a class="btn btn-outline" href="#contact" data-i18n="heroContact">GET IN TOUCH</a>
+        </div>
+      </div>
+      <div class="hero-stamp"><span>REGION</span><strong>ALICANTE</strong><span>SPAIN · DARTS · COMMUNITY</span></div>
+    </section>
+
+    <section class="ticker" aria-label="Brand statement"><span>180</span><b>•</b><span>GAME ON</span><b>•</b><span>ONE HUNDRED AND EIGHTY</span><b>•</b><span>REGION ALICANTE</span><b>•</b><span>180</span></section>
+
+    <section class="section" id="events">
+      <div class="section-heading">
+        <div><p class="eyebrow" data-i18n="eventsEyebrow">ON THE OCHÉ</p><h2 data-i18n="eventsTitle">UPCOMING <em>TOURNAMENTS</em></h2></div>
+        <span class="section-mark">01 / EVENTS</span>
+      </div>
+      <div class="event-grid" id="event-list" aria-live="polite"></div>
+    </section>
+
+    <section class="section section-dark" id="calendar">
+      <div class="section-heading">
+        <div><p class="eyebrow" data-i18n="calendarEyebrow">SAVE THE DATE</p><h2 data-i18n="calendarTitle">EVENT <em>CALENDAR</em></h2></div>
+        <span class="section-mark">02 / DATES</span>
+      </div>
+      <div class="calendar-list" id="calendar-list" aria-live="polite"></div>
+    </section>
+
+    <section class="section" id="results">
+      <div class="section-heading">
+        <div><p class="eyebrow" data-i18n="resultsEyebrow">THE MOMENT OF TRUTH</p><h2 data-i18n="resultsTitle">RESULTS & <em>RANKINGS</em></h2></div>
+        <span class="section-mark">03 / SCORES</span>
+      </div>
+      <div class="empty-panel">
+        <div class="empty-icon">🏆</div>
+        <h3 data-i18n="resultsEmptyTitle">The first champions are yet to be crowned</h3>
+        <p data-i18n="resultsEmptyCopy">Tournament results and player rankings will appear here after our first events.</p>
+      </div>
+    </section>
+
+    <section class="section section-dark" id="gallery">
+      <div class="section-heading">
+        <div><p class="eyebrow" data-i18n="galleryEyebrow">THE ACTION. THE ATMOSPHERE.</p><h2 data-i18n="galleryTitle">PHOTO <em>GALLERY</em></h2></div>
+        <span class="section-mark">04 / MOMENTS</span>
+      </div>
+      <div class="gallery-placeholder">
+        <div class="gallery-symbol">◎</div>
+        <h3 data-i18n="galleryEmptyTitle">Our story starts soon</h3>
+        <p data-i18n="galleryEmptyCopy">There are no past-event photos yet. This gallery will fill up with real moments from our tournaments.</p>
+      </div>
+    </section>
+
+    <section class="section sponsors" id="sponsors">
+      <div class="section-heading">
+        <div><p class="eyebrow" data-i18n="sponsorEyebrow">BACK THE GAME</p><h2 data-i18n="sponsorTitle">PARTNERS & <em>SPONSORS</em></h2></div>
+        <span class="section-mark">05 / PARTNERS</span>
+      </div>
+      <p class="sponsor-intro" data-i18n="sponsorIntro">Help us grow darts in the Alicante region. We welcome local businesses and brands who want to support exciting events and connect with the darts community.</p>
+      <div class="sponsor-callout">
+        <div><span class="eyebrow" data-i18n="foundingPartner">FOUNDING PARTNER OPPORTUNITY</span><h3 data-i18n="sponsorCallTitle">YOUR BRAND.<br><em>OUR NEXT BIG EVENT.</em></h3><p data-i18n="sponsorCallCopy">Become one of our first partners and put your business in the spotlight.</p></div>
+        <a class="btn btn-red" href="mailto:tournaments.darts@gmail.com?subject=Become%20a%20sponsor" data-i18n="sponsorCta">BECOME A SPONSOR ↗</a>
+      </div>
+      <div class="sponsor-slots"><div>YOUR LOGO HERE</div><div>YOUR LOGO HERE</div><div>YOUR LOGO HERE</div></div>
+    </section>
+
+    <section class="contact-section" id="contact">
+      <div class="contact-copy"><p class="eyebrow" data-i18n="contactEyebrow">LET'S TALK DARTS</p><h2 data-i18n="contactTitle">READY TO<br><em>GET INVOLVED?</em></h2><p data-i18n="contactCopy">Questions about tournaments, registration or sponsorship? We'd love to hear from you.</p></div>
+      <div class="contact-card"><span class="contact-label" data-i18n="emailUs">EMAIL US</span><a href="mailto:tournaments.darts@gmail.com">tournaments.darts@gmail.com ↗</a><span class="contact-note" data-i18n="contactNote">Alicante region · Spain</span></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <a class="footer-brand" href="#home"><img src="assets/logo.png" alt=""><span>DARTS TOURNAMENTS<br><small>REGION ALICANTE</small></span></a>
+    <p>© <span id="year"></span> Darts Tournaments Region Alicante. <span data-i18n="footerRights">All rights reserved.</span></p>
+    <a href="mailto:tournaments.darts@gmail.com">tournaments.darts@gmail.com</a>
+  </footer>
+  <script src="script.js"></script>
+</body>
+</html>
