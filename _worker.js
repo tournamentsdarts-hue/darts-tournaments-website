@@ -98,7 +98,7 @@ export default {
       try { return await api(request, env); }
       catch (e) { return json({error:"Serverfout. Controleer de D1-tabellen en binding."},500); }
     }
-    if (url.pathname === "/admin") return Response.redirect(new URL("/admin.html", request.url), 302);
+    
     return env.ASSETS.fetch(request);
   }
 };
