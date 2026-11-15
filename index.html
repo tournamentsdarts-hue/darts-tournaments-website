@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#09090c">
   <title>Darts Tournaments Region Alicante</title>
   <link rel="icon" href="assets/logo.png">
-  <link rel="stylesheet" href="styles.css?v=quest2027">
+  <link rel="stylesheet" href="styles.css?v=guestbook1">
 </head>
 <body>
   <div class="topline"></div>
@@ -22,6 +22,7 @@
       <a href="#calendar" data-i18n="navCalendar">Calendar</a>
       <a href="#results" data-i18n="navResults">Results</a>
       <a href="#gallery" data-i18n="navGallery">Gallery</a>
+      <a href="#guestbook" data-i18n="navGuestbook">Guestbook</a>
       <a href="#sponsors" data-i18n="navSponsors">Sponsors</a>
       <a href="#contact" data-i18n="navContact">Contact</a>
       <select id="language" aria-label="Select language">
@@ -113,10 +114,29 @@
       <div id="gallery-content" aria-live="polite"><div class="gallery-placeholder"><div class="gallery-symbol">◎</div><h3 data-i18n="galleryEmptyTitle">Our story starts soon</h3><p data-i18n="galleryEmptyCopy">There are no past-event photos yet. This gallery will fill up with real moments from our tournaments.</p></div></div>
     </section>
 
+    <section class="section section-dark" id="guestbook">
+      <div class="section-heading">
+        <div><p class="eyebrow" data-i18n="guestbookEyebrow">THE DARTS COMMUNITY</p><h2 data-i18n="guestbookTitle">DARTS <em>GUESTBOOK</em></h2></div>
+        <span class="section-mark">05 / COMMUNITY</span>
+      </div>
+      <p class="guestbook-intro" data-i18n="guestbookIntro">Leave a message for the darts community in the Alicante region.</p>
+      <form id="guestbook-form" class="guestbook-form">
+        <div class="guestbook-fields">
+          <label><span data-i18n="guestbookName">Your name</span><input name="name" maxlength="60" required autocomplete="name"></label>
+          <label><span data-i18n="guestbookCountry">Country</span><input name="country" maxlength="60" autocomplete="country-name"></label>
+        </div>
+        <label><span data-i18n="guestbookMessage">Your message</span><textarea name="message" rows="4" maxlength="600" required></textarea></label>
+        <div class="guestbook-trap" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div>
+        <button class="btn btn-red" type="submit" data-i18n="guestbookSubmit">SEND MESSAGE</button>
+        <p id="guestbook-status" class="guestbook-status" role="status" aria-live="polite"></p>
+      </form>
+      <div id="guestbook-messages" class="guestbook-messages" aria-live="polite"></div>
+    </section>
+
     <section class="section sponsors" id="sponsors">
       <div class="section-heading">
         <div><p class="eyebrow" data-i18n="sponsorEyebrow">BACK THE GAME</p><h2 data-i18n="sponsorTitle">PARTNERS & <em>SPONSORS</em></h2></div>
-        <span class="section-mark">05 / PARTNERS</span>
+        <span class="section-mark">06 / PARTNERS</span>
       </div>
       <p class="sponsor-intro" data-i18n="sponsorIntro">Help us grow darts in the Alicante region. We welcome local businesses and brands who want to support exciting events and connect with the darts community.</p>
       <div class="sponsor-callout">
@@ -137,6 +157,6 @@
     <p>© <span id="year"></span> Darts Tournaments Region Alicante. <span data-i18n="footerRights">All rights reserved.</span></p>
     <a href="mailto:tournaments.darts@gmail.com">tournaments.darts@gmail.com</a>
   </footer>
-  <script src="script.js?v=analytics1"></script>
+  <script src="script.js?v=guestbook1"></script>
 </body>
 </html>
