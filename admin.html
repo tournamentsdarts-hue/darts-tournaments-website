@@ -19,6 +19,13 @@
 <label for="galleryPhotos">Overige toernooifoto's (meerdere tegelijk selecteren)</label><input id="galleryPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple>
 <button id="uploadGallery">Foto's uploaden</button><span id="galleryMsg" class="msg"></span>
 <div id="galleryAdminList" class="flyer-preview"></div></div>
+<div class="panel" id="guestbookAdminPanel">
+<h2>Gastenboek beheren</h2>
+<p class="muted">Bekijk ingezonden berichten. Nieuwe berichten verschijnen pas openbaar nadat je ze hebt goedgekeurd.</p>
+<button type="button" id="refreshGuestbook" class="secondary">Berichten vernieuwen</button>
+<span id="guestbookAdminMsg" class="msg"></span>
+<div id="guestbookAdminList"></div>
+</div>
 <div class="panel" id="analyticsPanel"><h2>Website statistieken</h2><p class="muted">Alleen zichtbaar na je beheerderslogin. Bezoekers worden anoniem geteld met een willekeurige browser-ID.</p>
 <label for="analyticsPeriod">Periode</label><select id="analyticsPeriod"><option value="1">Vandaag</option><option value="7">Laatste 7 dagen</option><option value="30" selected>Laatste 30 dagen</option><option value="365">Laatste 12 maanden</option><option value="all">Alles</option></select>
 <div class="stats-grid" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0"><div class="panel"><strong>Unieke bezoekers</strong><h2 id="statVisitors">—</h2></div><div class="panel"><strong>Paginaweergaven</strong><h2 id="statViews">—</h2></div><div class="panel"><strong>Linkklikken</strong><h2 id="statClicks">—</h2></div><div class="panel"><strong>Events totaal</strong><h2 id="statEvents">—</h2></div></div>
@@ -30,7 +37,7 @@
 const $=s=>document.querySelector(s), login=$('#login'), app=$('#app');
 async function call(url,opts={}){const r=await fetch(url,{...opts,headers:{'content-type':'application/json',...(opts.headers||{})}});let d={};try{d=await r.json()}catch{}if(!r.ok)throw Error(d.error||'Er ging iets mis');return d}
 async function uploadFlyer(id,file){const data=new FormData();data.append('flyer',file);const r=await fetch('/api/admin/events/'+id+'/flyer',{method:'POST',body:data});let d={};try{d=await r.json()}catch{}if(!r.ok)throw Error(d.error||'Flyer uploaden is mislukt');return d}
-function showApp(){login.classList.add('hidden');app.classList.remove('hidden');load();loadAnalytics()}
+function showApp(){login.classList.add('hidden');app.classList.remove('hidden');load();loadAnalytics();loadGuestbookAdmin()}
 function showLogin(){app.classList.add('hidden');login.classList.remove('hidden')}
 async function check(){try{const d=await call('/api/me');d.authenticated?showApp():showLogin()}catch(e){$('#loginMsg').textContent=e.message;showLogin()}}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();$('#loginMsg').textContent='Bezig met inloggen…';const f=new FormData(e.target);try{await call('/api/login',{method:'POST',body:JSON.stringify({username:f.get('username'),password:f.get('password')})});e.target.reset();showApp()}catch(err){$('#loginMsg').textContent=err.message}});
@@ -53,6 +60,31 @@ async function refreshGalleryAdmin(){const id=$('#galleryTournament').value,box=
 $('#galleryTournament').addEventListener('change',()=>{refreshGalleryAdmin();$('#galleryMsg').textContent='';$('#winnerMsg').textContent=''});
 $('#uploadWinner').onclick=async()=>{const id=$('#galleryTournament').value,file=$('#winnerPhoto').files[0],name=$('#winnerName').value.trim();if(!id){$('#winnerMsg').textContent='Kies eerst een toernooi.';return}if(!file){$('#winnerMsg').textContent='Kies eerst een winnaarsfoto.';return}if(!name){$('#winnerMsg').textContent='Vul de naam van de winnaar in.';return}try{await uploadGalleryFile(id,file,'winner',name);$('#winnerMsg').textContent='Winnaarsfoto opgeslagen.';$('#winnerPhoto').value='';refreshGalleryAdmin()}catch(e){$('#winnerMsg').textContent=e.message}};
 $('#uploadGallery').onclick=async()=>{const id=$('#galleryTournament').value,files=[...$('#galleryPhotos').files];if(!id){$('#galleryMsg').textContent='Kies eerst een toernooi.';return}if(!files.length){$('#galleryMsg').textContent='Selecteer minimaal één foto.';return}try{for(let i=0;i<files.length;i++){ $('#galleryMsg').textContent=`Foto ${i+1} van ${files.length} uploaden…`;await uploadGalleryFile(id,files[i],'photo','')}$('#galleryMsg').textContent=`${files.length} foto's succesvol opgeslagen.`;$('#galleryPhotos').value='';refreshGalleryAdmin()}catch(e){$('#galleryMsg').textContent=e.message}};
+
+async function loadGuestbookAdmin(){
+  const box=$('#guestbookAdminList'),msg=$('#guestbookAdminMsg');
+  if(!box)return;
+  box.innerHTML='<p class="muted">Berichten laden…</p>';
+  try{
+    const d=await call('/api/admin/guestbook');
+    const items=Array.isArray(d.messages)?d.messages:[];
+    if(!items.length){box.innerHTML='<p class="muted">Er staan nog geen berichten in het gastenboek.</p>';return}
+    box.innerHTML=items.map(x=>`<article class="event" style="align-items:flex-start"><div style="flex:1;min-width:0"><strong>${esc(x.name)}${x.country?' · '+esc(x.country):''}</strong><span class="muted"> · ${esc(x.created_at)} · ${x.status==='approved'?'Goedgekeurd':'Wacht op goedkeuring'}</span><p style="white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0">${esc(x.message)}</p></div><div style="flex-shrink:0">${x.status!=='approved'?`<button type="button" data-guest-approve="${x.id}">Goedkeuren</button>`:''}<button type="button" class="danger" data-guest-delete="${x.id}">Verwijderen</button></div></article>`).join('');
+    box.querySelectorAll('[data-guest-approve]').forEach(b=>b.onclick=async()=>{
+      b.disabled=true;
+      try{await call('/api/admin/guestbook/'+b.dataset.guestApprove,{method:'POST',body:JSON.stringify({action:'approve'})});msg.textContent='Bericht goedgekeurd.';await loadGuestbookAdmin()}
+      catch(e){msg.textContent=e.message;b.disabled=false}
+    });
+    box.querySelectorAll('[data-guest-delete]').forEach(b=>b.onclick=async()=>{
+      if(!confirm('Dit gastenboekbericht definitief verwijderen?'))return;
+      b.disabled=true;
+      try{await call('/api/admin/guestbook/'+b.dataset.guestDelete,{method:'DELETE'});msg.textContent='Bericht verwijderd.';await loadGuestbookAdmin()}
+      catch(e){msg.textContent=e.message;b.disabled=false}
+    });
+  }catch(e){box.textContent=e.message}
+}
+$('#refreshGuestbook').onclick=loadGuestbookAdmin;
+
 async function loadAnalytics(){try{const d=await call('/api/admin/analytics?period='+encodeURIComponent($('#analyticsPeriod').value));$('#statVisitors').textContent=d.visitors;$('#statViews').textContent=d.pageviews;$('#statClicks').textContent=d.clicks;$('#statEvents').textContent=d.events;$('#analyticsTop').innerHTML=d.top.length?'<ol>'+d.top.map(x=>`<li>${esc(x.target)} — <strong>${x.clicks}</strong></li>`).join('')+'</ol>':'Nog geen linkklikken geregistreerd.';$('#analyticsDaily').innerHTML=d.daily.length?'<table style="width:100%;text-align:left"><tr><th>Datum</th><th>Bezoekers</th><th>Paginaweergaven</th><th>Klikken</th></tr>'+d.daily.map(x=>`<tr><td>${esc(x.day)}</td><td>${x.visitors}</td><td>${x.pageviews}</td><td>${x.clicks}</td></tr>`).join('')+'</table>':'Nog geen gegevens.';$('#analyticsMsg').textContent=''}catch(e){$('#analyticsMsg').textContent=e.message}}
 $('#analyticsPeriod').addEventListener('change',loadAnalytics);$('#refreshAnalytics').onclick=loadAnalytics;
 $('#downloadAnalytics').onclick=async()=>{try{const r=await fetch('/api/admin/analytics.csv?period='+encodeURIComponent($('#analyticsPeriod').value));if(!r.ok)throw Error('Download mislukt. Log opnieuw in.');const blob=await r.blob(),u=URL.createObjectURL(blob),link=document.createElement('a');link.href=u;link.download='website-statistieken.csv';link.click();URL.revokeObjectURL(u)}catch(e){$('#analyticsMsg').textContent=e.message}};
