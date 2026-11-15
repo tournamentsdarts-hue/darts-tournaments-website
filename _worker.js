@@ -1,5 +1,7 @@
 const COOKIE = "dta_admin";
 const SESSION_DAYS = 7;
+const MAX_FLYER_BYTES = 8 * 1024 * 1024;
+const ALLOWED_FLYER_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...headers } });
@@ -19,6 +21,9 @@ function cookieValue(request) {
 }
 function cookieHeader(value, maxAge) {
   return `${COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
+}
+function flyerUrl(key) {
+  return key ? `/media/${key.split("/").map(encodeURIComponent).join("/")}` : null;
 }
 async function requireAdmin(request, env) {
   if (!env.DB) return false;
@@ -56,10 +61,11 @@ async function api(request, env) {
     const { results } = await env.DB.prepare("SELECT r.tournament_id, r.player_name, r.position, t.name AS tournament_name, t.event_date AS date FROM tournament_results r JOIN tournaments t ON t.id=r.tournament_id WHERE t.status='published' ORDER BY t.event_date DESC, r.position ASC").all();
     return json({ results: results || [] }, 200, { "cache-control": "public, max-age=60" });
   }
+
   if (request.method === "GET" && path === "/api/events") {
     await seedEvents(env.DB);
-    const { results } = await env.DB.prepare("SELECT id,name,venue,event_date AS date,event_time AS time,registrations,entry_fee AS fee,format,registration_url AS url FROM tournaments WHERE status='published' ORDER BY event_date,event_time").all();
-    return json({ events: results || [] }, 200, { "cache-control": "public, max-age=60" });
+    const { results } = await env.DB.prepare("SELECT id,name,venue,event_date AS date,event_time AS time,registrations,entry_fee AS fee,format,registration_url AS url,flyer_key FROM tournaments WHERE status='published' ORDER BY event_date,event_time").all();
+    return json({ events: (results || []).map(event => ({ ...event, flyer_url: flyerUrl(event.flyer_key) })) }, 200, { "cache-control": "public, max-age=60" });
   }
   if (request.method === "POST" && path === "/api/login") {
     if (!env.ADMIN_PASSWORD || !env.ADMIN_USERNAME) return json({ error: "Admin secrets zijn nog niet ingesteld in Cloudflare." }, 503);
@@ -76,10 +82,28 @@ async function api(request, env) {
     return json({ ok: true }, 200, { "set-cookie": cookieHeader("", 0) });
   }
   if (request.method === "GET" && path === "/api/me") return json({ authenticated: await requireAdmin(request, env) });
+
+  // Publicly serve only objects stored under the flyers/ prefix.
+  if (path.startsWith("/media/") && request.method === "GET") {
+    if (!env.BUCKET) return new Response("Media storage is not configured.", { status: 503 });
+    let key;
+    try { key = path.slice("/media/".length).split("/").map(decodeURIComponent).join("/"); }
+    catch { return new Response("Invalid media path.", { status: 400 }); }
+    if (!key.startsWith("flyers/") || key.includes("..")) return new Response("Not found.", { status: 404 });
+    const object = await env.BUCKET.get(key);
+    if (!object) return new Response("Not found.", { status: 404 });
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set("etag", object.httpEtag);
+    headers.set("cache-control", "public, max-age=86400");
+    headers.set("x-content-type-options", "nosniff");
+    return new Response(object.body, { headers });
+  }
+
   if (!await requireAdmin(request, env)) return json({ error: "Niet ingelogd." }, 401);
   if (request.method === "GET" && path === "/api/admin/events") {
     const { results } = await env.DB.prepare("SELECT * FROM tournaments ORDER BY event_date,event_time").all();
-    return json({ events: results || [] });
+    return json({ events: (results || []).map(event => ({ ...event, flyer_url: flyerUrl(event.flyer_key) })) });
   }
   if (request.method === "GET" && path === "/api/admin/results") {
     const tournamentId = Number(url.searchParams.get("tournament_id"));
@@ -109,6 +133,34 @@ async function api(request, env) {
     const r = await env.DB.prepare("INSERT INTO tournaments (name,venue,event_date,event_time,registrations,entry_fee,format,registration_url,status) VALUES (?,?,?,?,?,?,?,?,?)").bind(...fields.map(v=>String(v ?? ""))).run();
     return json({ok:true,id:r.meta.last_row_id});
   }
+
+  const flyerRoute = path.match(/^\/api\/admin\/events\/(\d+)\/flyer$/);
+  if (flyerRoute && request.method === "POST") {
+    if (!env.BUCKET) return json({error:"De R2-binding BUCKET ontbreekt in Cloudflare."},503);
+    const id = Number(flyerRoute[1]);
+    const event = await env.DB.prepare("SELECT id,flyer_key FROM tournaments WHERE id=?").bind(id).first();
+    if (!event) return json({error:"Toernooi niet gevonden."},404);
+    const form = await request.formData();
+    const file = form.get("flyer");
+    if (!file || typeof file.arrayBuffer !== "function") return json({error:"Kies eerst een flyer."},400);
+    if (!ALLOWED_FLYER_TYPES.has(file.type)) return json({error:"Gebruik een JPG-, PNG- of WebP-afbeelding."},415);
+    if (file.size > MAX_FLYER_BYTES) return json({error:"De flyer is groter dan 8 MB."},413);
+    const ext = file.type === "image/jpeg" ? "jpg" : file.type === "image/png" ? "png" : "webp";
+    const key = `flyers/${id}/${randomToken()}.${ext}`;
+    await env.BUCKET.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+    await env.DB.prepare("UPDATE tournaments SET flyer_key=? WHERE id=?").bind(key,id).run();
+    if (event.flyer_key) await env.BUCKET.delete(event.flyer_key);
+    return json({ok:true,flyer_url:flyerUrl(key)});
+  }
+  if (flyerRoute && request.method === "DELETE") {
+    const id = Number(flyerRoute[1]);
+    const event = await env.DB.prepare("SELECT flyer_key FROM tournaments WHERE id=?").bind(id).first();
+    if (!event) return json({error:"Toernooi niet gevonden."},404);
+    if (event.flyer_key && env.BUCKET) await env.BUCKET.delete(event.flyer_key);
+    await env.DB.prepare("UPDATE tournaments SET flyer_key=NULL WHERE id=?").bind(id).run();
+    return json({ok:true});
+  }
+
   const edit = path.match(/^\/api\/admin\/events\/(\d+)$/);
   if (edit && request.method === "PUT") {
     let b; try { b = await request.json(); } catch { return json({error:"Ongeldige aanvraag."},400); }
@@ -118,7 +170,10 @@ async function api(request, env) {
     return json({ok:true});
   }
   if (edit && request.method === "DELETE") {
-    await env.DB.prepare("DELETE FROM tournaments WHERE id=?").bind(Number(edit[1])).run();
+    const id = Number(edit[1]);
+    const event = await env.DB.prepare("SELECT flyer_key FROM tournaments WHERE id=?").bind(id).first();
+    if (event?.flyer_key && env.BUCKET) await env.BUCKET.delete(event.flyer_key);
+    await env.DB.prepare("DELETE FROM tournaments WHERE id=?").bind(id).run();
     return json({ok:true});
   }
   return json({error:"Niet gevonden."},404);
@@ -126,11 +181,10 @@ async function api(request, env) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname.startsWith("/api/")) {
+    if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/media/")) {
       try { return await api(request, env); }
-      catch (e) { return json({error:"Serverfout. Controleer de D1-tabellen en binding."},500); }
+      catch (e) { return json({error:"Serverfout. Controleer de D1-tabellen, R2-binding en databasekolom flyer_key."},500); }
     }
-    if (url.pathname === "/admin") return Response.redirect(new URL("/admin.html", request.url), 302);
     return env.ASSETS.fetch(request);
   }
 };
