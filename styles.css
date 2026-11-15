@@ -71,3 +71,23 @@
 
 /* Tournament photo gallery */
 .gallery-event{margin:0 0 46px;padding:24px;background:#17171e;border:1px solid #ffffff18}.gallery-event-heading{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:20px}.gallery-event-heading h3{font:800 30px 'Barlow Condensed',Arial,sans-serif;text-transform:uppercase;margin:0}.gallery-event-heading span{color:var(--gold);font-size:12px}.gallery-winner{display:grid;grid-template-columns:minmax(220px,42%) 1fr;gap:24px;align-items:center;margin-bottom:22px;padding:14px;background:#0d0d12;border-left:4px solid var(--gold)}.gallery-winner img{display:block;width:100%;max-height:380px;object-fit:cover}.gallery-winner strong{display:block;font:900 clamp(26px,4vw,44px) 'Barlow Condensed',Arial,sans-serif;text-transform:uppercase;margin-top:10px}.gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}.gallery-grid a{display:block;overflow:hidden;background:#09090c}.gallery-grid img{display:block;width:100%;height:190px;object-fit:cover;transition:transform .25s}.gallery-grid a:hover img{transform:scale(1.04)}@media(max-width:650px){.gallery-event{padding:14px}.gallery-event-heading{align-items:flex-start;flex-direction:column}.gallery-winner{grid-template-columns:1fr}.gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.gallery-grid img{height:145px}}
+
+
+/* Featured Darts Quest 2027 grand final */
+.quest-feature{position:relative;overflow:hidden;padding:clamp(42px,6vw,86px) clamp(20px,7vw,110px);background:radial-gradient(ellipse at 78% 48%,#4a1710 0%,#1a1010 36%,#09090c 75%);border-top:1px solid #d7ad5540;border-bottom:1px solid #d7192055}
+.quest-feature:before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 35%,#d7ad5509 50%,transparent 68%)}
+.quest-feature-inner{position:relative;z-index:1;max-width:1450px;margin:0 auto;display:grid;grid-template-columns:minmax(260px, .78fr) minmax(300px,1.22fr);align-items:center;gap:clamp(28px,5vw,76px)}
+.quest-poster-wrap{max-width:540px;margin:0 auto;padding:7px;border:2px solid #d7ad55;border-radius:10px;background:linear-gradient(135deg,#ffdf83,#8b5a15,#f4c85c);box-shadow:0 0 35px #d7192040,0 18px 55px #000b}
+.quest-poster{display:block;width:100%;height:auto;border-radius:4px}
+.quest-feature-copy{max-width:690px}
+.quest-eyebrow{color:#f1c45e;font:800 12px 'Barlow Condensed',sans-serif;letter-spacing:3px;margin:0 0 15px}
+.quest-feature-copy h2{font:900 clamp(43px,6.5vw,82px)/.88 'Barlow Condensed',sans-serif;letter-spacing:-1px;text-transform:uppercase;margin:0;color:#fff}
+.quest-feature-copy h2 em{font-style:normal;color:#f2c45d;text-shadow:0 3px 0 #8d4c12,0 0 24px #e6a52c55}
+.quest-feature-copy h3{font:900 clamp(22px,3vw,35px) 'Barlow Condensed',sans-serif;letter-spacing:2px;color:#ef292f;margin:16px 0 25px}
+.quest-lead{font:900 clamp(19px,2.4vw,27px)/1.1 'Barlow Condensed',sans-serif;color:#f7d77e;letter-spacing:1px;margin:0 0 15px}
+.quest-description{color:#d2cbd0;font-size:15px;line-height:1.8;max-width:590px;margin:0 0 27px}
+.quest-cta{display:inline-flex;align-items:center;gap:22px;padding:17px 24px;background:linear-gradient(110deg,#d71920,#9e1018);border:1px solid #f3c85e;color:white;font:900 13px 'Barlow Condensed',sans-serif;letter-spacing:1.7px;box-shadow:0 8px 28px #d7192044;transition:transform .2s,box-shadow .2s}
+.quest-cta:hover{transform:translateY(-3px);box-shadow:0 12px 34px #d7192066}
+.quest-cta span{font-size:20px;color:#ffdc7a}
+.quest-note{font-size:11px;color:#b9a98b;letter-spacing:.5px;margin:17px 0 0}
+@media(max-width:760px){.quest-feature-inner{grid-template-columns:1fr;gap:30px}.quest-poster-wrap{width:min(100%,430px)}.quest-feature-copy{text-align:center;margin:0 auto}.quest-description{margin-left:auto;margin-right:auto}.quest-feature-copy h2{font-size:clamp(42px,12vw,66px)}}
