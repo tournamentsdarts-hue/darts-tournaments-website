@@ -91,3 +91,24 @@
 .quest-cta span{font-size:20px;color:#ffdc7a}
 .quest-note{font-size:11px;color:#b9a98b;letter-spacing:.5px;margin:17px 0 0}
 @media(max-width:760px){.quest-feature-inner{grid-template-columns:1fr;gap:30px}.quest-poster-wrap{width:min(100%,430px)}.quest-feature-copy{text-align:center;margin:0 auto}.quest-description{margin-left:auto;margin-right:auto}.quest-feature-copy h2{font-size:clamp(42px,12vw,66px)}}
+
+
+/* Darts Guestbook */
+.guestbook-intro{color:#c1c0c6;line-height:1.8;max-width:760px;margin:-15px 0 32px}
+.guestbook-form{max-width:900px;margin:0 0 42px;padding:clamp(20px,4vw,34px);background:linear-gradient(145deg,#191920,#111116);border:1px solid #ffffff1b;border-left:3px solid var(--red)}
+.guestbook-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.guestbook-form label{display:flex;flex-direction:column;gap:8px;color:var(--gold);font-size:10px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase}
+.guestbook-form input,.guestbook-form select,.guestbook-form textarea{width:100%;min-height:46px;padding:12px 14px;background:#09090f;color:var(--white);border:1px solid #45434b;border-radius:2px;font:500 14px Inter,Arial,sans-serif;letter-spacing:0;text-transform:none}
+.guestbook-form textarea{min-height:130px;resize:vertical;line-height:1.6}
+.guestbook-form input:focus,.guestbook-form select:focus,.guestbook-form textarea:focus{outline:2px solid var(--gold);outline-offset:2px;border-color:var(--gold)}
+.guestbook-form .guestbook-message-field{grid-column:1/-1}
+.guestbook-form button,.guestbook-submit{margin-top:20px;cursor:pointer}
+.guestbook-trap{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}
+.guestbook-status{min-height:24px;margin:15px 0 0;color:var(--gold);font-size:13px;line-height:1.6}
+.guestbook-messages{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.guestbook-message{padding:22px;background:linear-gradient(145deg,#191920,#111116);border:1px solid #ffffff1b;border-top:2px solid var(--gold);min-width:0}
+.guestbook-message p{margin:0;color:#dedce1;font-size:14px;line-height:1.8;overflow-wrap:anywhere;white-space:pre-wrap}
+.guestbook-message strong{display:block;margin:0 0 5px;color:#fff;font:800 22px 'Barlow Condensed',sans-serif;text-transform:uppercase;overflow-wrap:anywhere}
+.guestbook-message small{display:block;margin-bottom:13px;color:var(--gold);font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase}
+.guestbook-empty{grid-column:1/-1;padding:28px;background:#17171e;border:1px dashed #555;color:var(--muted);text-align:center;line-height:1.7}
+@media(max-width:650px){.guestbook-fields,.guestbook-messages{grid-template-columns:1fr}.guestbook-form .guestbook-message-field{grid-column:auto}.guestbook-form{padding:18px}}
