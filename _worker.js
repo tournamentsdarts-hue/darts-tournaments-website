@@ -159,8 +159,8 @@ async function api(request, env) {
       ? await env.DB.prepare("SELECT created_at,event_type,page,target,visitor_hash FROM analytics_events ORDER BY created_at DESC LIMIT 50000").all()
       : await env.DB.prepare("SELECT created_at,event_type,page,target,visitor_hash FROM analytics_events WHERE created_at>=? ORDER BY created_at DESC LIMIT 50000").bind(csvSince).all();
     const escCsv = v => '"' + String(v ?? '').replace(/"/g,'""') + '"';
-    const csv = ["Datum,type,pagina,link,anonieme_bezoeker",...(rows.results||[]).map(r=>[r.created_at,r.event_type,r.page,r.target,r.visitor_hash].map(escCsv).join(","))].join("\\r\\n");
-    return new Response("\\ufeff"+csv,{headers:{"content-type":"text/csv; charset=utf-8","content-disposition":"attachment; filename=website-statistieken.csv","cache-control":"no-store"}});
+    const csv = ["sep=;","Datum en tijd;Gebeurtenis;Pagina;Link;Anonieme bezoeker",...(rows.results||[]).map(r=>[r.created_at,r.event_type,r.page,r.target,r.visitor_hash].map(escCsv).join(";"))].join("\r\n");
+    return new Response("\ufeff"+csv,{headers:{"content-type":"text/csv; charset=utf-8","content-disposition":"attachment; filename=website-statistieken.csv","cache-control":"no-store"}});
   }
 
   if (request.method === "GET" && path === "/api/admin/events") {
