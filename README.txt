@@ -1,7 +1,5 @@
-DTA WEBSITE UPDATE — FLYERS + TOURNAMENT RESULTS
-
-Upload these files to the root of the existing GitHub repository, replacing files with the same names. Keep the assets folder. This package preserves R2 flyer routes and adds complete results management.
-
-Admin: choose a tournament, enter one player per line, save. A delete button appears only when saved results exist; deletion asks for confirmation. Public results are grouped by tournament on the home page.
-
-Cloudflare bindings required: D1 DB and R2 BUCKET. Existing ADMIN_USERNAME and ADMIN_PASSWORD secrets remain unchanged. Results table is created automatically.
+DTA gecombineerde update: flyerbeheer + flyerweergave + aanklikbare uitslagen.
+Upload de losse bestanden naar de bestaande GitHub-repository en commit op main.
+Bestanden: index.html, script.js, styles.css, admin.html, _worker.js, assets/logo.png.
+De bestaande Cloudflare D1-binding DB en R2-binding BUCKET blijven vereist.
+De tabel tournament_results wordt automatisch aangemaakt door de Worker.

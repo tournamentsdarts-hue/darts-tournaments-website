@@ -111,6 +111,14 @@ async function api(request, env) {
     const { results } = await env.DB.prepare("SELECT player_name FROM tournament_results WHERE tournament_id=? ORDER BY position").bind(tournamentId).all();
     return json({ entries: (results || []).map(x => x.player_name) });
   }
+  if (request.method === "DELETE" && path === "/api/admin/results") {
+    const tournamentId = Number(url.searchParams.get("tournament_id"));
+    if (!Number.isInteger(tournamentId) || tournamentId < 1) return json({error:"Kies een toernooi."},400);
+    const tournament = await env.DB.prepare("SELECT id FROM tournaments WHERE id=?").bind(tournamentId).first();
+    if (!tournament) return json({error:"Toernooi niet gevonden."},404);
+    await env.DB.prepare("DELETE FROM tournament_results WHERE tournament_id=?").bind(tournamentId).run();
+    return json({ok:true});
+  }
   if (request.method === "POST" && path === "/api/admin/results") {
     let b; try { b = await request.json(); } catch { return json({error:"Ongeldige aanvraag."},400); }
     const tournamentId = Number(b.tournament_id);
@@ -119,18 +127,11 @@ async function api(request, env) {
     if (!tournament) return json({error:"Toernooi niet gevonden."},404);
     if (!Array.isArray(b.entries)) return json({error:"Voer de spelers als lijst in."},400);
     const entries = b.entries.map(x => String(x || "").trim()).filter(Boolean);
-    if (!entries.length) return json({error:"Voer minimaal één speler in."},400);
     if (entries.length > 512 || entries.some(x => x.length > 100)) return json({error:"Maximaal 512 spelers; namen maximaal 100 tekens."},400);
     const statements = [env.DB.prepare("DELETE FROM tournament_results WHERE tournament_id=?").bind(tournamentId)];
     entries.forEach((name, i) => statements.push(env.DB.prepare("INSERT INTO tournament_results (tournament_id,player_name,position) VALUES (?,?,?)").bind(tournamentId,name,i+1)));
     await env.DB.batch(statements);
     return json({ok:true,count:entries.length});
-  }
-  if (request.method === "DELETE" && path === "/api/admin/results") {
-    const tournamentId = Number(url.searchParams.get("tournament_id"));
-    if (!Number.isInteger(tournamentId) || tournamentId < 1) return json({error:"Kies een toernooi."},400);
-    await env.DB.prepare("DELETE FROM tournament_results WHERE tournament_id=?").bind(tournamentId).run();
-    return json({ok:true});
   }
   if (request.method === "POST" && path === "/api/admin/events") {
     let b; try { b = await request.json(); } catch { return json({error:"Ongeldige aanvraag."},400); }
