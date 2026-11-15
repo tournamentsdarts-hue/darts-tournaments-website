@@ -1,6 +1,7 @@
 const COOKIE = "dta_admin";
 const SESSION_DAYS = 7;
 const MAX_FLYER_BYTES = 8 * 1024 * 1024;
+const MAX_GALLERY_BYTES = 8 * 1024 * 1024;
 const ALLOWED_FLYER_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function json(data, status = 200, headers = {}) {
@@ -47,6 +48,15 @@ async function seedEvents(db) {
 }
 async function api(request, env) {
   if (!env.DB) return json({ error: "Database binding ontbreekt. Voeg de D1-binding met naam DB toe in Cloudflare Settings > Bindings." }, 503);
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS tournament_gallery (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tournament_id INTEGER NOT NULL,
+    media_key TEXT NOT NULL,
+    media_type TEXT NOT NULL CHECK(media_type IN ('winner','photo')),
+    caption TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE
+  )`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS tournament_results (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tournament_id INTEGER NOT NULL,
@@ -57,6 +67,10 @@ async function api(request, env) {
   )`).run();
   const url = new URL(request.url);
   const path = url.pathname;
+  if (request.method === "GET" && path === "/api/gallery") {
+    const { results } = await env.DB.prepare("SELECT g.id,g.tournament_id,g.media_type,g.caption,g.media_key,t.name AS tournament_name,t.event_date AS date FROM tournament_gallery g JOIN tournaments t ON t.id=g.tournament_id WHERE t.status='published' ORDER BY t.event_date DESC, CASE g.media_type WHEN 'winner' THEN 0 ELSE 1 END, g.id DESC").all();
+    return json({ photos: (results || []).map(x => ({ ...x, url: flyerUrl(x.media_key) })) }, 200, { "cache-control": "public, max-age=60" });
+  }
   if (request.method === "GET" && path === "/api/results") {
     const { results } = await env.DB.prepare("SELECT r.tournament_id, r.player_name, r.position, t.name AS tournament_name, t.event_date AS date FROM tournament_results r JOIN tournaments t ON t.id=r.tournament_id WHERE t.status='published' ORDER BY t.event_date DESC, r.position ASC").all();
     return json({ results: results || [] }, 200, { "cache-control": "public, max-age=60" });
@@ -89,7 +103,7 @@ async function api(request, env) {
     let key;
     try { key = path.slice("/media/".length).split("/").map(decodeURIComponent).join("/"); }
     catch { return new Response("Invalid media path.", { status: 400 }); }
-    if (!key.startsWith("flyers/") || key.includes("..")) return new Response("Not found.", { status: 404 });
+    if ((!key.startsWith("flyers/") && !key.startsWith("gallery/")) || key.includes("..")) return new Response("Not found.", { status: 404 });
     const object = await env.BUCKET.get(key);
     if (!object) return new Response("Not found.", { status: 404 });
     const headers = new Headers();
@@ -140,6 +154,45 @@ async function api(request, env) {
     if (b.registration_url && !/^https?:\/\//i.test(b.registration_url)) return json({error:"De inschrijflink moet met http:// of https:// beginnen."},400);
     const r = await env.DB.prepare("INSERT INTO tournaments (name,venue,event_date,event_time,registrations,entry_fee,format,registration_url,status) VALUES (?,?,?,?,?,?,?,?,?)").bind(...fields.map(v=>String(v ?? ""))).run();
     return json({ok:true,id:r.meta.last_row_id});
+  }
+
+  if (request.method === "GET" && path === "/api/admin/gallery") {
+    const tournamentId = Number(url.searchParams.get("tournament_id"));
+    if (!Number.isInteger(tournamentId) || tournamentId < 1) return json({error:"Kies een toernooi."},400);
+    const { results } = await env.DB.prepare("SELECT id,media_type,caption,media_key FROM tournament_gallery WHERE tournament_id=? ORDER BY CASE media_type WHEN 'winner' THEN 0 ELSE 1 END,id DESC").bind(tournamentId).all();
+    return json({ photos: (results || []).map(x => ({...x,url:flyerUrl(x.media_key)})) });
+  }
+  const galleryRoute = path.match(/^\/api\/admin\/events\/(\d+)\/gallery$/);
+  if (galleryRoute && request.method === "POST") {
+    if (!env.BUCKET) return json({error:"De R2-binding BUCKET ontbreekt in Cloudflare."},503);
+    const tournamentId = Number(galleryRoute[1]);
+    const event = await env.DB.prepare("SELECT id FROM tournaments WHERE id=?").bind(tournamentId).first();
+    if (!event) return json({error:"Toernooi niet gevonden."},404);
+    const form = await request.formData();
+    const file = form.get("photo");
+    const mediaType = form.get("media_type") === "winner" ? "winner" : "photo";
+    const caption = String(form.get("caption") || "").trim().slice(0,120);
+    if (!file || typeof file.arrayBuffer !== "function") return json({error:"Kies eerst een foto."},400);
+    if (!ALLOWED_FLYER_TYPES.has(file.type)) return json({error:"Gebruik een JPG-, PNG- of WebP-afbeelding."},415);
+    if (file.size > MAX_GALLERY_BYTES) return json({error:"De foto is groter dan 8 MB."},413);
+    const ext = file.type === "image/jpeg" ? "jpg" : file.type === "image/png" ? "png" : "webp";
+    const key = `gallery/${tournamentId}/${randomToken()}.${ext}`;
+    await env.BUCKET.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+    if (mediaType === "winner") {
+      const old = await env.DB.prepare("SELECT id,media_key FROM tournament_gallery WHERE tournament_id=? AND media_type='winner'").bind(tournamentId).all();
+      for (const item of old.results || []) { await env.DB.prepare("DELETE FROM tournament_gallery WHERE id=?").bind(item.id).run(); await env.BUCKET.delete(item.media_key); }
+    }
+    const result = await env.DB.prepare("INSERT INTO tournament_gallery (tournament_id,media_key,media_type,caption) VALUES (?,?,?,?)").bind(tournamentId,key,mediaType,caption).run();
+    return json({ok:true,id:result.meta.last_row_id,url:flyerUrl(key)});
+  }
+  const galleryItemRoute = path.match(/^\/api\/admin\/gallery\/(\d+)$/);
+  if (galleryItemRoute && request.method === "DELETE") {
+    const id = Number(galleryItemRoute[1]);
+    const item = await env.DB.prepare("SELECT media_key FROM tournament_gallery WHERE id=?").bind(id).first();
+    if (!item) return json({error:"Foto niet gevonden."},404);
+    if (env.BUCKET) await env.BUCKET.delete(item.media_key);
+    await env.DB.prepare("DELETE FROM tournament_gallery WHERE id=?").bind(id).run();
+    return json({ok:true});
   }
 
   const flyerRoute = path.match(/^\/api\/admin\/events\/(\d+)\/flyer$/);

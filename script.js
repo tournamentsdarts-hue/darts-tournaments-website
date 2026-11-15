@@ -125,6 +125,29 @@ function updateCountdown() {
 }
 
 
+async function loadGallery(code) {
+  const target = document.getElementById('gallery-content');
+  if (!target) return;
+  const t = copy[code];
+  try {
+    const response = await fetch('/api/gallery');
+    if (!response.ok) throw new Error('Gallery unavailable');
+    const data = await response.json();
+    const photos = Array.isArray(data.photos) ? data.photos : [];
+    if (!photos.length) {
+      target.innerHTML = `<div class="gallery-placeholder"><div class="gallery-symbol">◎</div><h3>${t.galleryEmptyTitle}</h3><p>${t.galleryEmptyCopy}</p></div>`;
+      return;
+    }
+    const groups = new Map();
+    photos.forEach(photo => { if (!groups.has(photo.tournament_id)) groups.set(photo.tournament_id,{name:photo.tournament_name,date:photo.date,photos:[]}); groups.get(photo.tournament_id).photos.push(photo); });
+    target.innerHTML = [...groups.entries()].map(([id,group]) => {
+      const winner = group.photos.find(x=>x.media_type==='winner');
+      const others = group.photos.filter(x=>x.media_type!=='winner');
+      return `<section class="gallery-event"><div class="gallery-event-heading"><h3>${escapeHTML(group.name)}</h3><span>${formatDate(group.date,code)}</span></div>${winner?`<div class="gallery-winner"><a href="${escapeHTML(winner.url)}" target="_blank" rel="noopener"><img src="${escapeHTML(winner.url)}" alt="${escapeHTML(winner.caption||'Winner')}" loading="lazy"></a><div><span class="eyebrow">${code==='nl'?'TOERNOOIWINNAAR':code==='es'?'GANADOR DEL TORNEO':'TOURNAMENT WINNER'}</span><strong>${escapeHTML(winner.caption)}</strong></div></div>`:''}${others.length?`<div class="gallery-grid">${others.map(photo=>`<a href="${escapeHTML(photo.url)}" target="_blank" rel="noopener" aria-label="${escapeHTML(group.name)} photo"><img src="${escapeHTML(photo.url)}" alt="${escapeHTML(photo.caption||group.name)}" loading="lazy"></a>`).join('')}</div>`:''}</section>`;
+    }).join('');
+  } catch (_) { target.innerHTML = `<div class="gallery-placeholder"><div class="gallery-symbol">◎</div><h3>${t.galleryEmptyTitle}</h3><p>${t.galleryEmptyCopy}</p></div>`; }
+}
+
 function setLanguage(code) {
   document.documentElement.lang = code;
   document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -134,6 +157,7 @@ function setLanguage(code) {
   renderEvents(code);
   updateCountdown();
   loadResults(code);
+  loadGallery(code);
   localStorage.setItem('dta-lang', code);
 }
 async function loadPublishedEvents() {
