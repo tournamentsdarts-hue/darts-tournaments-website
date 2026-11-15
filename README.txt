@@ -39,7 +39,7 @@ TEST
 4. Keep your password private. The login cookie is HttpOnly, Secure and SameSite=Strict.
 
 CURRENT ADMIN FEATURES
-- Add, edit, publish/hide and delete tournaments
+- Add, edit, publish/hide and delete tournaments\n- Enter a complete tournament finishing order (one player per line) in the admin area\n- Public results section displays saved standings automatically\n- Results table is created automatically in D1 on the first API request
 - Set venue, date, time, registrations, entry fee, format and registration URL
 - Public tournament cards/calendar load published events from D1
 - If the API/database is not yet connected, the website still displays the original four event cards.

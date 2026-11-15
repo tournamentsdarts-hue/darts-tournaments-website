@@ -27,19 +27,26 @@
 .calendar-info p,.calendar-info>span{color:var(--muted);font-size:12px;margin:0 0 5px}
 .calendar-row .btn{flex:0 0 auto}
 @media(max-width:760px){.event-grid{grid-template-columns:1fr}.calendar-row{align-items:flex-start;flex-wrap:wrap}.calendar-row .calendar-date{flex-basis:70px;width:70px;height:70px}.calendar-info{flex-basis:calc(100% - 95px)}.calendar-row .btn{margin-left:92px}}
-/* Tournament flyer display */
-.event-flyer-link {
-  display: block;
-  width: 100%;
-  margin: 0 0 20px;
-  overflow: hidden;
-}
 
-.event-flyer {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: 480px;
-  object-fit: contain;
-  border-radius: 4px;
-}
+/* Tournament results */
+.result-card{background:linear-gradient(145deg,#191920,#111116);border:1px solid #ffffff1b;padding:26px;margin:0 0 18px}
+.result-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid #ffffff20;padding-bottom:15px;margin-bottom:12px}
+.result-heading .eyebrow{margin-bottom:7px}
+.result-heading h3{font:900 30px/1.05 'Barlow Condensed';text-transform:uppercase;margin:0}
+.result-count{font-size:10px;font-weight:800;letter-spacing:1.3px;color:var(--gold)}
+.result-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;counter-reset:rank}
+.result-list li{display:flex;align-items:center;gap:12px;padding:10px;background:#ffffff08;color:#eee;font-size:13px;min-width:0}
+.result-position{display:flex;align-items:center;justify-content:center;flex:0 0 30px;height:30px;background:var(--red);font-weight:900}
+@media(max-width:650px){.result-list{grid-template-columns:1fr}.result-heading{align-items:flex-start;flex-direction:column}}
+
+/* Click-to-open tournament result cards */
+.result-toggle{display:block;width:100%;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
+.result-toggle:focus-visible{outline:2px solid var(--gold);outline-offset:5px}
+.result-toggle .result-heading{margin:0;padding:0 0 15px}
+.result-title{display:flex;flex-direction:column;gap:7px;min-width:0}
+.result-title .eyebrow{margin:0}
+.result-name{font:900 30px/1.05 'Barlow Condensed';text-transform:uppercase}
+.result-meta{display:flex;align-items:center;gap:14px;flex-shrink:0}
+.result-chevron{font-size:24px;color:var(--gold);line-height:1}
+.result-details{padding-top:12px}
+@media(max-width:650px){.result-toggle .result-heading{align-items:flex-start;flex-direction:row}.result-meta{align-items:flex-end;flex-direction:column;gap:5px}.result-name{font-size:25px}}
