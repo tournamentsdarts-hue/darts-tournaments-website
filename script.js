@@ -181,3 +181,15 @@ document.querySelector('.menu-toggle').addEventListener('click', () => {
 });
 document.querySelectorAll('.nav a').forEach(a => a.addEventListener('click', () => document.querySelector('.nav').classList.remove('open')));
 document.getElementById('year').textContent = new Date().getFullYear();
+
+// Privacy-conscious first-party analytics: anonymous random visitor ID, no names or IP storage.
+(function(){
+  const track=(type,target='')=>{try{fetch('/api/analytics/track',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type,page:location.pathname+location.hash,target}) ,keepalive:true})}catch(_){}};
+  track('pageview');
+  document.addEventListener('click',e=>{
+    const el=e.target.closest('a,button'); if(!el)return;
+    const label=(el.getAttribute('data-analytics')||el.textContent||el.getAttribute('aria-label')||el.href||'link').trim().replace(/\\s+/g,' ').slice(0,150);
+    const href=el.getAttribute('href')||'';
+    track('click',label+(href?' | '+href:''));
+  },true);
+})();

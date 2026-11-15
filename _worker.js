@@ -65,8 +65,30 @@ async function api(request, env) {
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE
   )`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS analytics_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    visitor_hash TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    page TEXT NOT NULL DEFAULT '',
+    target TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`).run();
   const url = new URL(request.url);
   const path = url.pathname;
+  if (request.method === "POST" && path === "/api/analytics/track") {
+    let body; try { body = await request.json(); } catch { return json({ok:false},400); }
+    const type = body.type === "click" ? "click" : body.type === "pageview" ? "pageview" : "";
+    if (!type) return json({ok:false},400);
+    const existingVisitor = request.headers.get("Cookie")?.match(/(?:^|;\\s*)dta_visitor=([a-f0-9]{32,64})/)?.[1];
+    const rawId = existingVisitor || randomToken();
+    const visitorHash = await sha256(rawId);
+    const page = String(body.page || "/").slice(0,180);
+    const target = String(body.target || "").slice(0,180);
+    await env.DB.prepare("INSERT INTO analytics_events (visitor_hash,event_type,page,target) VALUES (?,?,?,?)").bind(visitorHash,type,page,target).run();
+    const headers = existingVisitor ? {} : { "set-cookie": `dta_visitor=${rawId}; Path=/; Max-Age=31536000; Secure; SameSite=Lax` };
+    return json({ok:true},200,headers);
+  }
+
   if (request.method === "GET" && path === "/api/gallery") {
     const { results } = await env.DB.prepare("SELECT g.id,g.tournament_id,g.media_type,g.caption,g.media_key,t.name AS tournament_name,t.event_date AS date FROM tournament_gallery g JOIN tournaments t ON t.id=g.tournament_id WHERE t.status='published' ORDER BY t.event_date DESC, CASE g.media_type WHEN 'winner' THEN 0 ELSE 1 END, g.id DESC").all();
     return json({ photos: (results || []).map(x => ({ ...x, url: flyerUrl(x.media_key) })) }, 200, { "cache-control": "public, max-age=60" });
@@ -115,6 +137,32 @@ async function api(request, env) {
   }
 
   if (!await requireAdmin(request, env)) return json({ error: "Niet ingelogd." }, 401);
+  if (request.method === "GET" && path === "/api/admin/analytics") {
+    const period = url.searchParams.get("period") || "30";
+    const days = period === "all" ? 36500 : Math.min(3650, Math.max(1, Number(period) || 30));
+    const since = new Date(Date.now() - days * 86400000).toISOString().slice(0,19).replace("T"," ");
+    const filter = period === "all" ? "" : " WHERE created_at >= ?";
+    const bind = period === "all" ? [] : [since];
+    const total = await env.DB.prepare("SELECT COUNT(*) AS n FROM analytics_events" + filter).bind(...bind).first();
+    const visitors = await env.DB.prepare("SELECT COUNT(DISTINCT visitor_hash) AS n FROM analytics_events" + filter).bind(...bind).first();
+    const pages = await env.DB.prepare("SELECT COUNT(*) AS n FROM analytics_events WHERE event_type='pageview'" + (period === "all" ? "" : " AND created_at>=?")).bind(...bind).first();
+    const clicks = await env.DB.prepare("SELECT COUNT(*) AS n FROM analytics_events WHERE event_type='click'" + (period === "all" ? "" : " AND created_at>=?")).bind(...bind).first();
+    const top = await env.DB.prepare("SELECT target,COUNT(*) AS clicks FROM analytics_events WHERE event_type='click'" + (period === "all" ? "" : " AND created_at>=?") + " GROUP BY target ORDER BY clicks DESC LIMIT 15").bind(...bind).all();
+    const daily = await env.DB.prepare("SELECT substr(created_at,1,10) AS day,SUM(event_type='pageview') AS pageviews,SUM(event_type='click') AS clicks,COUNT(DISTINCT visitor_hash) AS visitors FROM analytics_events" + (period === "all" ? "" : " WHERE created_at>=?") + " GROUP BY day ORDER BY day DESC LIMIT 60").bind(...bind).all();
+    return json({visitors:visitors?.n||0,pageviews:pages?.n||0,clicks:clicks?.n||0,events:total?.n||0,top:top.results||[],daily:daily.results||[]});
+  }
+  if (request.method === "GET" && path === "/api/admin/analytics.csv") {
+    const csvPeriod = url.searchParams.get("period") || "30";
+    const csvDays = csvPeriod === "all" ? 36500 : Math.min(3650, Math.max(1, Number(csvPeriod) || 30));
+    const csvSince = new Date(Date.now() - csvDays * 86400000).toISOString().slice(0,19).replace("T"," ");
+    const rows = csvPeriod === "all"
+      ? await env.DB.prepare("SELECT created_at,event_type,page,target,visitor_hash FROM analytics_events ORDER BY created_at DESC LIMIT 50000").all()
+      : await env.DB.prepare("SELECT created_at,event_type,page,target,visitor_hash FROM analytics_events WHERE created_at>=? ORDER BY created_at DESC LIMIT 50000").bind(csvSince).all();
+    const escCsv = v => '"' + String(v ?? '').replace(/"/g,'""') + '"';
+    const csv = ["Datum,type,pagina,link,anonieme_bezoeker",...(rows.results||[]).map(r=>[r.created_at,r.event_type,r.page,r.target,r.visitor_hash].map(escCsv).join(","))].join("\\r\\n");
+    return new Response("\\ufeff"+csv,{headers:{"content-type":"text/csv; charset=utf-8","content-disposition":"attachment; filename=website-statistieken.csv","cache-control":"no-store"}});
+  }
+
   if (request.method === "GET" && path === "/api/admin/events") {
     const { results } = await env.DB.prepare("SELECT * FROM tournaments ORDER BY event_date,event_time").all();
     return json({ events: (results || []).map(event => ({ ...event, flyer_url: flyerUrl(event.flyer_key) })) });
