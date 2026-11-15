@@ -73,6 +73,14 @@ async function api(request, env) {
     target TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS guestbook_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    country TEXT NOT NULL DEFAULT '',
+    message TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`).run();
   const url = new URL(request.url);
   const path = url.pathname;
   if (request.method === "POST" && path === "/api/analytics/track") {
@@ -87,6 +95,25 @@ async function api(request, env) {
     await env.DB.prepare("INSERT INTO analytics_events (visitor_hash,event_type,page,target) VALUES (?,?,?,?)").bind(visitorHash,type,page,target).run();
     const headers = existingVisitor ? {} : { "set-cookie": `dta_visitor=${rawId}; Path=/; Max-Age=31536000; Secure; SameSite=Lax` };
     return json({ok:true},200,headers);
+  }
+
+  if (request.method === "GET" && path === "/api/guestbook") {
+    const { results } = await env.DB.prepare("SELECT id,name,country,message,created_at FROM guestbook_messages WHERE status='approved' ORDER BY created_at DESC LIMIT 100").all();
+    return json({ messages: results || [] }, 200, { "cache-control": "public, max-age=30" });
+  }
+  if (request.method === "POST" && path === "/api/guestbook") {
+    let body; try { body = await request.json(); } catch { return json({error:"Ongeldige aanvraag."},400); }
+    if (String(body.website || "").trim()) return json({ok:true});
+    const name = String(body.name || "").trim();
+    const country = String(body.country || "").trim();
+    const message = String(body.message || "").trim();
+    if (name.length < 2 || name.length > 60 || country.length > 60 || message.length < 5 || message.length > 600) {
+      return json({error:"Controleer je naam, land en bericht. Het bericht mag maximaal 600 tekens bevatten."},400);
+    }
+    const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM guestbook_messages WHERE created_at >= datetime('now','-1 hour')").first();
+    if ((recent?.n || 0) >= 30) return json({error:"Het gastenboek ontvangt momenteel veel berichten. Probeer het later opnieuw."},429);
+    await env.DB.prepare("INSERT INTO guestbook_messages (name,country,message,status) VALUES (?,?,?,'pending')").bind(name,country,message).run();
+    return json({ok:true,pending:true});
   }
 
   if (request.method === "GET" && path === "/api/gallery") {
@@ -137,6 +164,24 @@ async function api(request, env) {
   }
 
   if (!await requireAdmin(request, env)) return json({ error: "Niet ingelogd." }, 401);
+  if (request.method === "GET" && path === "/api/admin/guestbook") {
+    const { results } = await env.DB.prepare("SELECT id,name,country,message,status,created_at FROM guestbook_messages ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, created_at DESC LIMIT 300").all();
+    return json({ messages: results || [] });
+  }
+  const guestbookRoute = path.match(/^\/api\/admin\/guestbook\/(\d+)$/);
+  if (guestbookRoute && request.method === "POST") {
+    let body; try { body = await request.json(); } catch { return json({error:"Ongeldige aanvraag."},400); }
+    if (body.action !== "approve") return json({error:"Ongeldige actie."},400);
+    const result = await env.DB.prepare("UPDATE guestbook_messages SET status='approved' WHERE id=?").bind(Number(guestbookRoute[1])).run();
+    if (!result.meta.changes) return json({error:"Bericht niet gevonden."},404);
+    return json({ok:true});
+  }
+  if (guestbookRoute && request.method === "DELETE") {
+    const result = await env.DB.prepare("DELETE FROM guestbook_messages WHERE id=?").bind(Number(guestbookRoute[1])).run();
+    if (!result.meta.changes) return json({error:"Bericht niet gevonden."},404);
+    return json({ok:true});
+  }
+
   if (request.method === "GET" && path === "/api/admin/analytics") {
     const period = url.searchParams.get("period") || "30";
     const days = period === "all" ? 36500 : Math.min(3650, Math.max(1, Number(period) || 30));
