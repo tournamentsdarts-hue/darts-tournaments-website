@@ -94,6 +94,36 @@ async function loadResults(code) {
   }
 }
 
+let countdownInterval = null;
+function updateCountdown() {
+  const panel = document.getElementById("next-event-countdown");
+  if (!panel) return;
+  const now = Date.now();
+  const nextEvent = events
+    .map(event => ({...event, startsAt: new Date(`${event.date}T${event.time || "00:00"}:00`).getTime()}))
+    .filter(event => Number.isFinite(event.startsAt) && event.startsAt > now && event.url)
+    .sort((a,b) => a.startsAt - b.startsAt)[0];
+  if (!nextEvent) {
+    panel.hidden = true;
+    if (countdownInterval) clearInterval(countdownInterval);
+    countdownInterval = null;
+    return;
+  }
+  panel.hidden = false;
+  document.getElementById("countdown-event-name").textContent = nextEvent.name;
+  document.getElementById("countdown-register").href = safeEventUrl(nextEvent.url);
+  const remaining = Math.max(0, nextEvent.startsAt - Date.now());
+  const days = Math.floor(remaining / 86400000);
+  const hours = Math.floor((remaining % 86400000) / 3600000);
+  const minutes = Math.floor((remaining % 3600000) / 60000);
+  const seconds = Math.floor((remaining % 60000) / 1000);
+  document.getElementById("countdown-days").textContent = String(days).padStart(2,"0");
+  document.getElementById("countdown-hours").textContent = String(hours).padStart(2,"0");
+  document.getElementById("countdown-minutes").textContent = String(minutes).padStart(2,"0");
+  document.getElementById("countdown-seconds").textContent = String(seconds).padStart(2,"0");
+  if (!countdownInterval) countdownInterval = setInterval(updateCountdown,1000);
+}
+
 function setLanguage(code) {
   document.documentElement.lang = code;
   document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -101,6 +131,7 @@ function setLanguage(code) {
     if (copy[code][key]) el.textContent = copy[code][key];
   });
   renderEvents(code);
+  updateCountdown();
   loadResults(code);
   localStorage.setItem('dta-lang', code);
 }
