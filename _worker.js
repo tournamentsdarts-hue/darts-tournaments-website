@@ -111,6 +111,14 @@ async function api(request, env) {
     const { results } = await env.DB.prepare("SELECT player_name FROM tournament_results WHERE tournament_id=? ORDER BY position").bind(tournamentId).all();
     return json({ entries: (results || []).map(x => x.player_name) });
   }
+  if (request.method === "DELETE" && path === "/api/admin/results") {
+    const tournamentId = Number(url.searchParams.get("tournament_id"));
+    if (!Number.isInteger(tournamentId) || tournamentId < 1) return json({error:"Kies een toernooi."},400);
+    const tournament = await env.DB.prepare("SELECT id FROM tournaments WHERE id=?").bind(tournamentId).first();
+    if (!tournament) return json({error:"Toernooi niet gevonden."},404);
+    await env.DB.prepare("DELETE FROM tournament_results WHERE tournament_id=?").bind(tournamentId).run();
+    return json({ok:true});
+  }
   if (request.method === "POST" && path === "/api/admin/results") {
     let b; try { b = await request.json(); } catch { return json({error:"Ongeldige aanvraag."},400); }
     const tournamentId = Number(b.tournament_id);
