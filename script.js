@@ -239,4 +239,43 @@ document.getElementById('year').textContent = new Date().getFullYear();
     const href=el.getAttribute('href')||'';
     track('click',label+(href?' | '+href:''));
   },true);
-})();
+})();// Load and display active sponsor advertisements
+async function loadSponsorAds() {
+  const container = document.getElementById('sponsorAds');
+  if (!container) return;
+
+  try {
+    const response = await fetch('/api/sponsors');
+    if (!response.ok) throw new Error('Sponsoradvertenties laden mislukt');
+
+    const data = await response.json();
+    const sponsors = data.sponsors || [];
+
+    container.replaceChildren();
+
+    sponsors.forEach(sponsor => {
+      const card = document.createElement('div');
+      card.className = 'sponsor-ad-card';
+
+      const link = document.createElement('a');
+      link.href = sponsor.website_url || '#';
+      if (sponsor.website_url) {
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+      }
+
+      const image = document.createElement('img');
+      image.src = sponsor.image_url;
+      image.alt = sponsor.name || 'Sponsoradvertentie';
+      image.loading = 'lazy';
+
+      link.appendChild(image);
+      card.appendChild(link);
+      container.appendChild(card);
+    });
+  } catch (error) {
+    console.error('Sponsoradvertenties:', error);
+  }
+}
+
+loadSponsorAds();
