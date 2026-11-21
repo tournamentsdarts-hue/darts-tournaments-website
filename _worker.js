@@ -197,8 +197,8 @@ async function api(request, env) {
     const ext = file.type === "image/jpeg" ? "jpg" : file.type === "image/png" ? "png" : "webp";
     const key = `sponsors/${randomToken()}.${ext}`;
     await env.BUCKET.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
-    const result = await env.DB.prepare("INSERT INTO sponsor_ads (name,website_url,media_key,display_order,active) VALUES (?,?,?,?,1)").bind(name,website,key,order).run();
-    return json({ok:true,id:result.meta.last_row_id,image_url:flyerUrl(key)});
+    const active = String(form.get("active")) === "0" ? 0 : 1;
+await env.DB.prepare("INSERT INTO sponsor_ads (name,website_url,media_key,display_order,active) VALUES (?,?,?,?,?)").bind(name,website,key,order,active).run();
   }
   const sponsorRoute = path.match(/^\/api\/admin\/sponsors\/(\d+)$/);
   if (sponsorRoute && request.method === "PUT") {
