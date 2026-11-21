@@ -19,6 +19,21 @@
 <label for="galleryPhotos">Overige toernooifoto's (meerdere tegelijk selecteren)</label><input id="galleryPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple>
 <button id="uploadGallery">Foto's uploaden</button><span id="galleryMsg" class="msg"></span>
 <div id="galleryAdminList" class="flyer-preview"></div></div>
+
+<div class="panel" id="sponsorAdminPanel">
+<h2>Sponsoradvertenties beheren</h2>
+<p class="muted">Upload de complete reclameafbeelding van een sponsor. De afbeelding wordt volledig getoond zonder uitsnijden. Voeg eventueel een website-link toe.</p>
+<form id="sponsorForm" class="grid">
+<input type="hidden" name="id">
+<div><label for="sponsorName">Naam sponsor *</label><input id="sponsorName" name="name" maxlength="100" required></div>
+<div><label for="sponsorWebsite">Website (optioneel)</label><input id="sponsorWebsite" name="website_url" type="url" placeholder="https://..."></div>
+<div><label for="sponsorOrder">Volgorde</label><input id="sponsorOrder" name="display_order" type="number" min="0" max="999" value="0"></div>
+<div><label for="sponsorActive">Zichtbaarheid</label><select id="sponsorActive" name="active"><option value="1">Actief — zichtbaar op de website</option><option value="0">Inactief — verborgen</option></select></div>
+<div class="wide"><label for="sponsorImage">Reclameafbeelding (JPG, PNG of WebP · maximaal 8 MB)</label><input id="sponsorImage" name="image" type="file" accept="image/jpeg,image/png,image/webp"><div id="sponsorPreview" class="flyer-preview"></div><p class="muted">Bij een nieuwe advertentie is een afbeelding verplicht. Bij bewerken kun je de bestaande afbeelding behouden.</p></div>
+<div class="wide"><button type="submit" id="saveSponsor">Sponsor opslaan</button><button type="button" class="secondary" id="resetSponsor">Nieuw / wissen</button><button type="button" class="secondary" id="refreshSponsors">Vernieuwen</button><span id="sponsorMsg" class="msg"></span></div>
+</form>
+<div id="sponsorAdminList"></div>
+</div>
 <div class="panel" id="guestbookAdminPanel">
 <h2>Gastenboek beheren</h2>
 <p class="muted">Bekijk ingezonden berichten. Nieuwe berichten verschijnen pas openbaar nadat je ze hebt goedgekeurd.</p>
@@ -37,7 +52,7 @@
 const $=s=>document.querySelector(s), login=$('#login'), app=$('#app');
 async function call(url,opts={}){const r=await fetch(url,{...opts,headers:{'content-type':'application/json',...(opts.headers||{})}});let d={};try{d=await r.json()}catch{}if(!r.ok)throw Error(d.error||'Er ging iets mis');return d}
 async function uploadFlyer(id,file){const data=new FormData();data.append('flyer',file);const r=await fetch('/api/admin/events/'+id+'/flyer',{method:'POST',body:data});let d={};try{d=await r.json()}catch{}if(!r.ok)throw Error(d.error||'Flyer uploaden is mislukt');return d}
-function showApp(){login.classList.add('hidden');app.classList.remove('hidden');load();loadAnalytics();loadGuestbookAdmin()}
+function showApp(){login.classList.add('hidden');app.classList.remove('hidden');load();loadAnalytics();loadGuestbookAdmin();loadSponsorsAdmin()}
 function showLogin(){app.classList.add('hidden');login.classList.remove('hidden')}
 async function check(){try{const d=await call('/api/me');d.authenticated?showApp():showLogin()}catch(e){$('#loginMsg').textContent=e.message;showLogin()}}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();$('#loginMsg').textContent='Bezig met inloggen…';const f=new FormData(e.target);try{await call('/api/login',{method:'POST',body:JSON.stringify({username:f.get('username'),password:f.get('password')})});e.target.reset();showApp()}catch(err){$('#loginMsg').textContent=err.message}});
@@ -84,6 +99,69 @@ async function loadGuestbookAdmin(){
   }catch(e){box.textContent=e.message}
 }
 $('#refreshGuestbook').onclick=loadGuestbookAdmin;
+
+
+async function uploadSponsorForm(id, form){
+  const data=new FormData(form);
+  const file=$('#sponsorImage').files[0];
+  if(file)data.set('image',file);else data.delete('image');
+  const url=id?'/api/admin/sponsors/'+encodeURIComponent(id):'/api/admin/sponsors';
+  const r=await fetch(url,{method:id?'PUT':'POST',body:data});
+  let d={};try{d=await r.json()}catch{}
+  if(!r.ok)throw Error(d.error||'Sponsor opslaan is mislukt');
+  return d;
+}
+function resetSponsorForm(){
+  const f=$('#sponsorForm');f.reset();f.elements.id.value='';f.elements.display_order.value='0';f.elements.active.value='1';
+  $('#sponsorPreview').innerHTML='';$('#sponsorMsg').textContent='';$('#saveSponsor').textContent='Sponsor opslaan';
+}
+function showSponsorPreview(url){
+  const box=$('#sponsorPreview');box.innerHTML='';
+  if(!url)return;
+  const img=document.createElement('img');img.src=url;img.alt='Sponsoradvertentie';img.style.cssText='max-width:320px;max-height:180px;object-fit:contain;background:#fff';
+  box.append(img);
+}
+async function loadSponsorsAdmin(){
+  const box=$('#sponsorAdminList');if(!box)return;
+  box.innerHTML='<p class="muted">Sponsoradvertenties laden…</p>';
+  try{
+    const d=await call('/api/admin/sponsors');
+    const items=Array.isArray(d.sponsors)?d.sponsors:[];
+    if(!items.length){box.innerHTML='<p class="muted">Nog geen sponsoradvertenties toegevoegd.</p>';return}
+    box.innerHTML=items.map(x=>`<article class="event" style="align-items:flex-start"><div style="flex:1;min-width:0"><strong>${esc(x.name)}</strong><span class="muted"> · ${x.active?'Actief':'Inactief'} · Volgorde ${x.display_order}${x.website_url?' · '+esc(x.website_url):''}</span><div style="margin-top:10px"><img src="${esc(x.image_url)}" alt="${esc(x.name)}" style="width:min(100%,320px);height:150px;object-fit:contain;background:#fff;border:1px solid #444;border-radius:4px"></div></div><div style="flex-shrink:0"><button type="button" class="secondary" data-sponsor-edit="${x.id}">Bewerken</button><button type="button" class="danger" data-sponsor-delete="${x.id}">Verwijderen</button></div></article>`).join('');
+    box.querySelectorAll('[data-sponsor-edit]').forEach(b=>b.onclick=()=>editSponsor(Number(b.dataset.sponsorEdit)));
+    box.querySelectorAll('[data-sponsor-delete]').forEach(b=>b.onclick=async()=>{
+      if(!confirm('Deze sponsoradvertentie definitief verwijderen?'))return;
+      b.disabled=true;
+      try{await call('/api/admin/sponsors/'+b.dataset.sponsorDelete,{method:'DELETE'});$('#sponsorMsg').textContent='Sponsoradvertentie verwijderd.';await loadSponsorsAdmin()}
+      catch(e){$('#sponsorMsg').textContent=e.message;b.disabled=false}
+    });
+  }catch(e){box.textContent=e.message}
+}
+async function editSponsor(id){
+  try{
+    const d=await call('/api/admin/sponsors');const x=(d.sponsors||[]).find(item=>item.id===id);if(!x)return;
+    const f=$('#sponsorForm');f.elements.id.value=x.id;f.elements.name.value=x.name||'';f.elements.website_url.value=x.website_url||'';
+    f.elements.display_order.value=x.display_order??0;f.elements.active.value=String(x.active?1:0);
+    $('#sponsorImage').value='';showSponsorPreview(x.image_url);$('#saveSponsor').textContent='Wijzigingen opslaan';
+    $('#sponsorMsg').textContent='Advertentie wordt bewerkt. Laat de afbeelding leeg om de huidige afbeelding te behouden.';
+    f.scrollIntoView({behavior:'smooth',block:'center'});
+  }catch(e){$('#sponsorMsg').textContent=e.message}
+}
+$('#sponsorForm').addEventListener('submit',async e=>{
+  e.preventDefault();const f=e.target,id=f.elements.id.value;
+  if(!id&&!$('#sponsorImage').files[0]){$('#sponsorMsg').textContent='Kies eerst een reclameafbeelding.';return}
+  $('#saveSponsor').disabled=true;$('#sponsorMsg').textContent='Bezig met opslaan…';
+  try{await uploadSponsorForm(id,f);resetSponsorForm();$('#sponsorMsg').textContent='Sponsoradvertentie opgeslagen.';await loadSponsorsAdmin()}
+  catch(err){$('#sponsorMsg').textContent=err.message}
+  finally{$('#saveSponsor').disabled=false}
+});
+$('#resetSponsor').onclick=resetSponsorForm;
+$('#refreshSponsors').onclick=loadSponsorsAdmin;
+$('#sponsorImage').addEventListener('change',()=>{
+  const file=$('#sponsorImage').files[0];if(!file)return;
+  const url=URL.createObjectURL(file);showSponsorPreview(url);
+});
 
 async function loadAnalytics(){try{const d=await call('/api/admin/analytics?period='+encodeURIComponent($('#analyticsPeriod').value));$('#statVisitors').textContent=d.visitors;$('#statViews').textContent=d.pageviews;$('#statClicks').textContent=d.clicks;$('#statEvents').textContent=d.events;$('#analyticsTop').innerHTML=d.top.length?'<ol>'+d.top.map(x=>`<li>${esc(x.target)} — <strong>${x.clicks}</strong></li>`).join('')+'</ol>':'Nog geen linkklikken geregistreerd.';$('#analyticsDaily').innerHTML=d.daily.length?'<table style="width:100%;text-align:left"><tr><th>Datum</th><th>Bezoekers</th><th>Paginaweergaven</th><th>Klikken</th></tr>'+d.daily.map(x=>`<tr><td>${esc(x.day)}</td><td>${x.visitors}</td><td>${x.pageviews}</td><td>${x.clicks}</td></tr>`).join('')+'</table>':'Nog geen gegevens.';$('#analyticsMsg').textContent=''}catch(e){$('#analyticsMsg').textContent=e.message}}
 $('#analyticsPeriod').addEventListener('change',loadAnalytics);$('#refreshAnalytics').onclick=loadAnalytics;
