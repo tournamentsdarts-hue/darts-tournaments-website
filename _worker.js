@@ -81,6 +81,15 @@ async function api(request, env) {
     status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved')),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS sponsor_ads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    website_url TEXT NOT NULL DEFAULT '',
+    media_key TEXT NOT NULL,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`).run();
   const url = new URL(request.url);
   const path = url.pathname;
   if (request.method === "POST" && path === "/api/analytics/track") {
@@ -125,6 +134,11 @@ async function api(request, env) {
     return json({ results: results || [] }, 200, { "cache-control": "public, max-age=60" });
   }
 
+  if (request.method === "GET" && path === "/api/sponsors") {
+    const { results } = await env.DB.prepare("SELECT id,name,website_url,display_order,media_key FROM sponsor_ads WHERE active=1 ORDER BY display_order ASC,id ASC").all();
+    return json({ sponsors: (results || []).map(item => ({ ...item, image_url: flyerUrl(item.media_key) })) }, 200, { "cache-control": "public, max-age=60" });
+  }
+
   if (request.method === "GET" && path === "/api/events") {
     await seedEvents(env.DB);
     const { results } = await env.DB.prepare("SELECT id,name,venue,event_date AS date,event_time AS time,registrations,entry_fee AS fee,format,registration_url AS url,flyer_key FROM tournaments WHERE status='published' ORDER BY event_date,event_time").all();
@@ -152,7 +166,7 @@ async function api(request, env) {
     let key;
     try { key = path.slice("/media/".length).split("/").map(decodeURIComponent).join("/"); }
     catch { return new Response("Invalid media path.", { status: 400 }); }
-    if ((!key.startsWith("flyers/") && !key.startsWith("gallery/")) || key.includes("..")) return new Response("Not found.", { status: 404 });
+    if ((!key.startsWith("flyers/") && !key.startsWith("gallery/") && !key.startsWith("sponsors/")) || key.includes("..")) return new Response("Not found.", { status: 404 });
     const object = await env.BUCKET.get(key);
     if (!object) return new Response("Not found.", { status: 404 });
     const headers = new Headers();
@@ -164,6 +178,63 @@ async function api(request, env) {
   }
 
   if (!await requireAdmin(request, env)) return json({ error: "Niet ingelogd." }, 401);
+  if (request.method === "GET" && path === "/api/admin/sponsors") {
+    const { results } = await env.DB.prepare("SELECT id,name,website_url,display_order,active,media_key,created_at FROM sponsor_ads ORDER BY display_order ASC,id ASC").all();
+    return json({ sponsors: (results || []).map(item => ({ ...item, image_url: flyerUrl(item.media_key) })) });
+  }
+  if (request.method === "POST" && path === "/api/admin/sponsors") {
+    if (!env.BUCKET) return json({error:"De R2-binding BUCKET ontbreekt in Cloudflare."},503);
+    const form = await request.formData();
+    const name = String(form.get("name") || "").trim().slice(0,100);
+    const website = String(form.get("website_url") || "").trim().slice(0,500);
+    const order = Math.max(0, Math.min(999, Number(form.get("display_order") || 0)));
+    const file = form.get("image");
+    if (!name) return json({error:"Vul de naam van de sponsor in."},400);
+    if (website && !/^https?:\/\//i.test(website)) return json({error:"De website moet beginnen met http:// of https://."},400);
+    if (!file || typeof file.arrayBuffer !== "function") return json({error:"Kies eerst een reclameafbeelding."},400);
+    if (!ALLOWED_FLYER_TYPES.has(file.type)) return json({error:"Gebruik een JPG-, PNG- of WebP-afbeelding."},415);
+    if (file.size > MAX_GALLERY_BYTES) return json({error:"De afbeelding is groter dan 8 MB."},413);
+    const ext = file.type === "image/jpeg" ? "jpg" : file.type === "image/png" ? "png" : "webp";
+    const key = `sponsors/${randomToken()}.${ext}`;
+    await env.BUCKET.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+    const result = await env.DB.prepare("INSERT INTO sponsor_ads (name,website_url,media_key,display_order,active) VALUES (?,?,?,?,1)").bind(name,website,key,order).run();
+    return json({ok:true,id:result.meta.last_row_id,image_url:flyerUrl(key)});
+  }
+  const sponsorRoute = path.match(/^\/api\/admin\/sponsors\/(\d+)$/);
+  if (sponsorRoute && request.method === "PUT") {
+    const id = Number(sponsorRoute[1]);
+    const existing = await env.DB.prepare("SELECT media_key FROM sponsor_ads WHERE id=?").bind(id).first();
+    if (!existing) return json({error:"Sponsoradvertentie niet gevonden."},404);
+    const form = await request.formData();
+    const name = String(form.get("name") || "").trim().slice(0,100);
+    const website = String(form.get("website_url") || "").trim().slice(0,500);
+    const orderValue = Number(form.get("display_order") || 0);
+    const order = Number.isFinite(orderValue) ? Math.max(0, Math.min(999, orderValue)) : 0;
+    const active = String(form.get("active")) === "0" ? 0 : 1;
+    const file = form.get("image");
+    if (!name) return json({error:"Vul de naam van de sponsor in."},400);
+    if (website && !/^https?:\/\//i.test(website)) return json({error:"De website moet beginnen met http:// of https://."},400);
+    let mediaKey = existing.media_key;
+    if (file && typeof file.arrayBuffer === "function" && file.size > 0) {
+      if (!env.BUCKET) return json({error:"De R2-binding BUCKET ontbreekt in Cloudflare."},503);
+      if (!ALLOWED_FLYER_TYPES.has(file.type)) return json({error:"Gebruik een JPG-, PNG- of WebP-afbeelding."},415);
+      if (file.size > MAX_GALLERY_BYTES) return json({error:"De afbeelding is groter dan 8 MB."},413);
+      const ext = file.type === "image/jpeg" ? "jpg" : file.type === "image/png" ? "png" : "webp";
+      mediaKey = `sponsors/${randomToken()}.${ext}`;
+      await env.BUCKET.put(mediaKey, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+      if (existing.media_key) await env.BUCKET.delete(existing.media_key);
+    }
+    await env.DB.prepare("UPDATE sponsor_ads SET name=?,website_url=?,display_order=?,active=?,media_key=? WHERE id=?").bind(name,website,order,active,mediaKey,id).run();
+    return json({ok:true,image_url:flyerUrl(mediaKey)});
+  }
+  if (sponsorRoute && request.method === "DELETE") {
+    const id = Number(sponsorRoute[1]);
+    const item = await env.DB.prepare("SELECT media_key FROM sponsor_ads WHERE id=?").bind(id).first();
+    if (!item) return json({error:"Sponsoradvertentie niet gevonden."},404);
+    if (env.BUCKET) await env.BUCKET.delete(item.media_key);
+    await env.DB.prepare("DELETE FROM sponsor_ads WHERE id=?").bind(id).run();
+    return json({ok:true});
+  }
   if (request.method === "GET" && path === "/api/admin/guestbook") {
     const { results } = await env.DB.prepare("SELECT id,name,country,message,status,created_at FROM guestbook_messages ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, created_at DESC LIMIT 300").all();
     return json({ messages: results || [] });
